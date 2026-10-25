@@ -94,9 +94,7 @@ def main():
         frontend_demo.launch(
             server_name=args.host,
             server_port=args.port,
-            theme=gr.themes.Soft(primary_hue="orange", neutral_hue="slate"),
-            css=frontend_css,
-            share=True,
+            share=False,
             show_error=True
         )
 
