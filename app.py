@@ -86,7 +86,6 @@ def main():
         frontend_demo.launch(
             server_name=args.host,
             server_port=args.port,
-            css=frontend_css,
             share=args.share,
             show_error=True
         )
