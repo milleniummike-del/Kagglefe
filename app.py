@@ -96,7 +96,7 @@ def main():
             server_port=args.port,
             theme=gr.themes.Soft(primary_hue="orange", neutral_hue="slate"),
             css=frontend_css,
-            share=False,
+            share=True,
             show_error=True
         )
 
