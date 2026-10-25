@@ -314,7 +314,7 @@ CSS = """
 }
 """
 
-with gr.Blocks(theme=gr.themes.Soft(primary_hue="orange", neutral_hue="slate"), css=CSS, title="LTX-Video 2.3 — Decoupled Queue Studio") as demo:
+with gr.Blocks(title="LTX-Video 2.3 — Decoupled Queue Studio") as demo:
     gr.HTML("""
     <div class="header-banner">
         <div style="display: flex; justify-content: space-between; align-items: center; flex-wrap: wrap; gap: 14px;">
@@ -359,6 +359,51 @@ with gr.Blocks(theme=gr.themes.Soft(primary_hue="orange", neutral_hue="slate"), 
         label="Sequential Queue Backlog (FIFO Order)",
         interactive=False,
     )
+
+    with gr.Accordion("🧠 Real LTX-2.3 22B Distilled Model & GPU Status", open=False):
+        model_status_html = gr.HTML("""
+            <div style="background: rgba(15, 23, 42, 0.7); border: 1px solid rgba(255,255,255,0.1); border-radius: 8px; padding: 14px;">
+                <div style="font-weight: 600; color: #f97316; margin-bottom: 6px;">LTX-Video 2.3 22B Distilled Engine</div>
+                <div style="color: #94a3b8; font-size: 13px;">Real model weights (GGUF Q4_K_M) load automatically when located in <code>models/</code> or specified path.</div>
+            </div>
+        """)
+        with gr.Row():
+            custom_model_path = gr.Textbox(
+                label="Custom Transformer GGUF Path",
+                placeholder="models/ltx-2.3-22b-distilled-Q4_K_M_light.gguf",
+                value="models/ltx-2.3-22b-distilled-Q4_K_M_light.gguf"
+            )
+            custom_encoder_path = gr.Textbox(
+                label="Custom Text Encoder Path",
+                placeholder="/kaggle/tmp/models/gemma-3-12b-it-qat-q4_0-unquantized",
+                value=""
+            )
+        with gr.Row():
+            load_model_btn = gr.Button("⚡ Load / Reload Real LTX-2.3 Model", variant="secondary")
+            model_load_status = gr.Markdown("")
+
+        def handle_load_model(m_path, enc_path):
+            try:
+                r = requests.post(
+                    f"{BACKEND_URL}/api/model/load",
+                    json={"transformer_path": m_path or None, "text_encoder_path": enc_path or None},
+                    timeout=60
+                )
+                if r.status_code == 200:
+                    d = r.json()
+                    if d.get("real_model_loaded"):
+                        return f"✅ **Real LTX-2.3 Model Loaded!** GPU inference is active for subsequent queue jobs."
+                    else:
+                        return f"⚠️ **Could not load real model:** {d.get('message')}\nUsing fallback synthesizer."
+                return f"❌ Request error ({r.status_code}): {r.text}"
+            except Exception as e:
+                return f"❌ Error contacting backend: {e}"
+
+        load_model_btn.click(
+            fn=handle_load_model,
+            inputs=[custom_model_path, custom_encoder_path],
+            outputs=[model_load_status]
+        )
 
     with gr.Row():
         cancel_btn = gr.Button("🛑 Cancel Active / Queued Job", size="sm", variant="secondary")
@@ -583,6 +628,8 @@ def start_frontend(host="0.0.0.0", port=3000):
     demo.launch(
         server_name=host,
         server_port=port,
+        theme=gr.themes.Soft(primary_hue="orange", neutral_hue="slate"),
+        css=CSS,
         share=False,
         show_error=True
     )
