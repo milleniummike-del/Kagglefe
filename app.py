@@ -94,7 +94,7 @@ def main():
         frontend_demo.launch(
             server_name=args.host,
             server_port=args.port,
-            share=False,
+            share=True,
             show_error=True
         )
 
