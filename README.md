@@ -1,51 +1,60 @@
-# LTX-Video 2.3 — Pure Python Gradio Queue Studio
+# LTX-Video 2.3 — Decoupled Backend Service & Gradio Frontend
 
-An official-grade, **100% Python** Gradio application for **LTX-Video 2.3 (Lightricks)** video generation with a live, visible **Video Generation Queue** powered by sequential FIFO background processing, prompt conditioning, audio upload for motion sync, and dual keyframe images.
+A decoupled, production-grade architecture splitting **LTX-Video 2.3** into an autonomous backend queue service and a non-blocking Gradio frontend client.
 
-## Structure
+## Why the Previous Queue in `ltx.py` Did Not Work
+
+In the original `ltx.py`:
+1. **Generator Lock Starvation**: `Submit_Prompt_To_Queue` ran as a Gradio streaming generator holding `_prompt_worker_lock` in a `while True:` loop inside a single client request. Other concurrent clicks and other user sessions were blocked.
+2. **Connection Fragility**: If the user refreshed the browser or the network briefly disconnected, Gradio canceled the generator, causing the worker loop to terminate and drop remaining jobs.
+3. **No Real Decoupling**: Model inference, queue storage, and UI rendering were entangled in the same event loop.
+
+## The Decoupled Architecture
 
 ```
-├── app.py                # Pure Python Gradio application & FIFO queue worker
-├── sample_assets/        # Synthetic audio and demo keyframe image assets
-│   ├── images/
-│   │   ├── ltx_space_nebula_*.jpg
-│   │   ├── ltx_crystal_planet_*.jpg
-│   │   ├── ltx_cyber_alley_day_*.jpg
-│   │   └── ltx_cyber_alley_neon_*.jpg
-│   ├── cosmic_synth.wav
-│   ├── cyber_rain.wav
-│   └── cinematic_bass.wav
-├── README.md
-├── metadata.json
-└── package.json          # Container startup runner (python3 app.py)
+┌───────────────────────────────────────┐
+│       Gradio Frontend (port 3000)     │
+│  - Non-blocking prompt submissions    │
+│  - Live queue monitor (gr.Timer 1s)   │
+│  - Completed video gallery & player   │
+└──────────────────┬────────────────────┘
+                   │ HTTP REST (JSON / multipart)
+┌──────────────────▼────────────────────┐
+│      FastAPI Backend (port 7860)      │
+│  - Autonomous FIFO queue worker thread│
+│  - /api/queue/submit (instant <20ms)  │
+│  - /api/queue/status & /api/cancel    │
+│  - /api/project/upload_extract & run  │
+│  - Video rendering engine & /videos   │
+└───────────────────────────────────────┘
 ```
 
-## Features
+### Components
 
-- **100% Python Codebase**: Built exclusively with Python (`gradio`, `pillow`, `subprocess` with `ffmpeg`), with zero JavaScript/TypeScript.
-- **Visible Multi-Job Video Generation Queue**:
-  - **Live Worker Monitor**: Real-time progress bar (0%–100%), pipeline stage description, and remaining ETA countdown.
-  - **Interactive Queue Backlog Table**: Shows all jobs in the queue with status badges:
-    - `⚡ Running (Step X/30 · Y%)`
-    - `⏳ In Queue (Wait #1, #2, ...)`
-    - `✅ Ready (Elapsed time)`
-    - `❌ Cancelled`
-  - **Sequential Processing (FIFO)**: Queue multiple jobs one after another without waiting for the UI. The background worker processes them one by one in order.
-  - **Completed Video Selector**: Browse and play all generated videos from the queue history with full video controls, download option, and detailed generation telemetry.
-  - **Cancel Control**: Immediate cancellation of the running job or pending queued jobs.
-- **Inputs & Conditioning**:
-  - **Prompt**: Textarea with cinematic suggestions + Negative prompt filter accordion.
-  - **Dual Image Uploads**: `gr.Image` for Frame 0 (Start Image) and Frame N (End Image / Style Reference).
-  - **Audio Upload**: `gr.Audio` for conditioning audio with beat-driven camera motion, ambient flow, and spectral pulse sync.
-  - **LTX-Video 2.3 Hyperparameters**: Duration, Aspect Ratio (16:9, 9:16, 1:1, 4:3), FPS, Inference Steps (10–50), CFG Guidance Scale, Motion Dynamics, and Seed controls.
-- **Mock Video Generation Engine**:
-  - Pure Python synthesizer using Pillow and FFmpeg rendering smooth camera motion, easing transitions, and audio multiplexing to standard H.264 MP4.
-- **Pre-populated Clickable Examples**:
-  - Cosmic Nebula to Crystalline Planet (with synth pad audio)
-  - Tokyo Cyberpunk Daylight to Neon Nightfall (with ambient rain audio)
+- **`backend.py`**:
+  - Standalone FastAPI server on port `7860`.
+  - Autonomous FIFO background worker daemon running in its own thread, completely detached from client connections.
+  - Endpoints:
+    - `POST /api/queue/submit`: Enqueues video requests and returns job position instantly.
+    - `GET /api/queue/status`: Real-time state of active, queued, and completed jobs.
+    - `POST /api/jobs/{id}/cancel`: Immediate job cancellation.
+    - `POST /api/project/upload_extract`: Extracts project ZIP and validates `manifest.json`.
+    - `POST /api/project/queue_batch`: Enqueues all project pieces into the queue.
+    - `GET /api/videos/{filename}`: Video streaming endpoint.
+- **`frontend.py`**:
+  - Gradio UI on port `3000`.
+  - Submissions return in milliseconds, allowing the user to queue multiple videos back-to-back without UI freezing.
+  - Periodic polling (`gr.Timer(1.0)`) provides real-time progress bars, ETAs, and updates the completed video selector.
+- **`app.py`**:
+  - Orchestrates both services seamlessly (`python3 app.py --port 3000`).
 
-## Running the App
+## Running the Architecture
 
 ```bash
+# Start both backend and frontend together:
 python3 app.py --port 3000 --host 0.0.0.0
+
+# Or start services separately:
+python3 backend.py   # Runs on http://127.0.0.1:7860
+python3 frontend.py  # Runs on http://0.0.0.0:3000
 ```

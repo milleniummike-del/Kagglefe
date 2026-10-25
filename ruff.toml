@@ -1,0 +1,14 @@
+[lint]
+ignore = [
+    "BLE001",   # Blind exception catching is standard for robust ML pipeline fallbacks
+    "B008",     # FastAPI Form(...) and File(...) defaults are idiomatic FastAPI patterns
+    "ASYNC230", # Local file writes in endpoint handlers
+    "TRY002",   # Generic Exception in cancellation
+    "S110",     # Try-except-pass in image dimension check
+    "SIM117",   # Gradio tab and row context managers
+    "S603",     # Subprocess call with FFmpeg
+    "S607",     # Partial executable path
+]
+exclude = [
+    "ltx.py.bak"
+]

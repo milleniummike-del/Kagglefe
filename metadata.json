@@ -1,0 +1,6 @@
+{
+  "name": "LTX-Video 2.3 Studio & Service Queue",
+  "description": "Decoupled LTX-Video 2.3 architecture with dedicated FastAPI background queue service and responsive Gradio Web frontend.",
+  "requestFramePermissions": [],
+  "majorCapabilities": ["MAJOR_CAPABILITY_SERVER_SIDE_GEMINI_API"]
+}
