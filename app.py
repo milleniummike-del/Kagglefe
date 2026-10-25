@@ -86,7 +86,7 @@ def main():
         frontend_demo.launch(
             server_name=args.host,
             server_port=args.port,
-            share=args.share,
+            share=True,
             show_error=True
         )
     except Exception as exc:
@@ -94,7 +94,7 @@ def main():
         frontend_demo.launch(
             server_name=args.host,
             server_port=args.port,
-            share=True,
+            share=False,
             show_error=True
         )
 
